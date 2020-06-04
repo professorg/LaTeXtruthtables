@@ -1,28 +1,63 @@
 #!/bin/node
 const readline = require('readline-sync')
+const _ = require('lodash')
 
 // Operations
+function and(a, b) {
+    return a && b
+}
+
+function or(a, b) {
+    return a || b
+}
+
+function implies(a, b) {
+    return b || !a;
+}
+
+//Curried
+const cAnd = _.curry(and)
+const cOr = _.curry(or)
+const cImplies = _.curry(implies)
+
 function startNegate(state) {
+    let f = state.scope[0].pop()
+    state.scope[0].push(vars => !f(vars))
 }
 
 function getLiteral(state) {
+    let index = state.scope[0].pop()
+    let f = state.scope[0].pop()
+    state.scope[0].push(vars => f(vars[index]))
 }
 
 function startGroup(state) {
-    state.scope.unshift([])
+    state.scope.unshift([vars => vars])
 }
 
 function startAnd(state) {
+    let f = state.scope[0].pop()
+    state.scope[0].push(cAnd(f(vars)))
 }
 
 function startOr(state) {
+    let f = state.scope[0].pop()
+    state.scope[0].push(cOr(f(vars)))
 }
 
 function startImplies(state) {
+    let f = state.scope[0].pop()
+    state.scope[0].push(cImplies(f(vars)))
 }
 
 function endGroup(state) {
-    state.scope.shift()
+    let collapsed = state.scope.shift()
+    if (state.scope.length <= 0) { //replace with function itself
+        state.result = collapsed[0]
+    } else {
+        let f = state.scope[0].pop()
+        state.scope[0].push(vars => f(collapsed(vars)))
+    }
 }
 
 // Dictionaries
@@ -80,8 +115,8 @@ function getVars(state) {
     )
 
     let response = parseInt(readline.question("> "))
-    let key = Object.keys(state.vars)[response]
-    let symbol = state.vars[key]
+    state.scope[0].push(response)
+    let symbol = state.vars[response]
     return [symbol, symbol]
 }
 
@@ -118,6 +153,7 @@ function doAction(state, action) {
 }
 
 function init(state) {
+    //Init by starting a group
     let action = types.Variable.Group
     doAction(state, action)
 }
@@ -132,7 +168,7 @@ const TEMPLATE = {
     vars:   vars,
     expr:   [],
     scope:  [],
-    type:    'Variable'
+    type:   'Variable'
 }
 
 let state = TEMPLATE
