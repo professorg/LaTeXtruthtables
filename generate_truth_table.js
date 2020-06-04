@@ -1,5 +1,6 @@
 #!/bin/node
 const readline = require('readline-sync')
+require('lodash.product')
 const _ = require('lodash')
 
 // Operations
@@ -51,11 +52,11 @@ function startImplies(state) {
 }
 
 function endGroup(state) {
-    let collapsed = state.scope.shift()
-    if (state.scope.length <= 0) { //replace with function itself
-        state.result = collapsed[0]
+    let collapsed = state.scope.shift()[0]
+    if (state.scope.length <= 0) {
+        state.result = collapsed
     } else {
-        let f = state.scope[0].pop()
+        let f = state.scope[0].pop()    // pop off current function
         state.scope[0].push(vars => f(collapsed(vars)))
     }
 }
@@ -70,10 +71,10 @@ const symbols = {
     False:      state    => ['F',   'F'],
     LParen:     state    => ['(',   '('],
     RParen:     state    => [')',   ')'],
-    Not:        state    => ['!',   '\\neg'],
-    And:        state    => ['&',   '\\wedge'],
-    Or:         state    => ['|',   '\\vee'],
-    Implies:    state    => ['=>',  '\\to']
+    Not:        state    => ['!',   '\\neg '],
+    And:        state    => [' & ', ' \\wedge '],
+    Or:         state    => [' | ', ' \\vee '],
+    Implies:    state    => [' => ',' \\to ']
 };
 
 const SYMBOL = 0
@@ -141,6 +142,10 @@ function simplePrint(expr) {
     )
 }
 
+function getLaTeX(expr) {
+    return expr.map(s => s[LATEX]).join('')
+}
+
 function doAction(state, action) {
     // Push the symbol
     state.expr.push(action[SYMBOL](state))
@@ -157,6 +162,10 @@ function init(state) {
     let action = types.Variable.Group
     doAction(state, action)
 }
+
+//Cartesian from https://stackoverflow.com/questions/12303989/cartesian-product-of-multiple-arrays-in-javascript
+let g = (a, b) => [].concat(...a.map(a => b.map(b => [].concat(a, b))));
+let cartesian = (a, b, ...c) => b ? cartesian(g(a, b), ...c) : a;
 
 let vars = readline.question('Enter the free variables as single'
         + ' characters with no separation (e.g., "PQR"): ')
@@ -179,4 +188,12 @@ do {
     let action = menu(state)
     doAction(state, action)
 } while (state.scope.length > 0)
+
+let args = _.product(...state.vars.map(o => [true, false]))
+console.log(args)
+let header = [...state.vars, state.expr.map(s => s[LATEX])]
+console.log(header)
+let body = args
+        .map(a => [...a, state.result(a)])
+console.log(body)
 
